@@ -5,18 +5,19 @@ namespace PacketApp {
         private static TransformResolverLite resolver;
         static void Main (string[] args) {
             var roomId = 0;
-            if (int.TryParse (Console.ReadLine (), out roomId)) {
+            var roomIdText = Console.ReadLine();
+            if (int.TryParse (roomIdText, out roomId)) {
                 var api = new BiliApi ("");
-                var roomText = api.getRealRoomId ("320");
-                if (string.IsNullOrEmpty (roomText)) {
+                var realRoomText = api.getRealRoomId (roomIdText);
+                if (string.IsNullOrEmpty (realRoomText)) {
                     //TODO 
                 }
-                var realRoomId = int.Parse (roomText);
+                var realRoomId = int.Parse (realRoomText);
                 bool mayNotExist;
                 string server;
                 string portText;
                 int port;
-                if (!api.getDmServerAddr (roomText, out server, out portText, out mayNotExist)) {
+                if (!api.getDmServerAddr (realRoomText, out server, out portText, out mayNotExist)) {
                     if (mayNotExist)
                         return;
                     //May exist, generate default address

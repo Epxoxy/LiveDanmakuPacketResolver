@@ -48,7 +48,7 @@ namespace PacketApp {
                     }
                 }
                 ctx.close ();
-            });
+            }).ContinueWith(task => { task.Exception?.printStackTrace(); });
         }
 
     }

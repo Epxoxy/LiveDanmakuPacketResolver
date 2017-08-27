@@ -48,7 +48,7 @@ namespace PacketApp {
         public void onReadReady(ITransformContext ctx, ByteBuffer buf){
             var current = Next;
             while (current != null) {
-                current.Resolver.onRead (ctx, buf);
+                current.Resolver.onReadReady(ctx, buf);
                 current = current.Next;
             }
         }
