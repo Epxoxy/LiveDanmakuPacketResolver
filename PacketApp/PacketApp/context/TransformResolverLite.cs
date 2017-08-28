@@ -1,13 +1,12 @@
-﻿using System;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Diagnostics.CodeAnalysis;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
 namespace PacketApp {
-    
+
     public interface ITransformContext {
         void addLast (IFlowResolver resolver);
+        void remove (IFlowResolver resolver);
         bool isActive ();
         void writeAndFlush (byte[] data);
         void write (byte[] data);
@@ -37,10 +36,10 @@ namespace PacketApp {
                 int readSize = 0;
                 var cache = new byte[1024];
                 var buffer = ByteBuffer.allocate (1024);
-                head?.Resolver.onReadReady(this, buffer);
+                head?.Resolver.onReadReady (this, buffer);
                 while ((readSize = stream.Read (cache, 0, cache.Length)) > 0) {
                     buffer.writeBytes (cache, 0, readSize);
-                    head?.Resolver.onRead(this, buffer);
+                    head?.Resolver.onRead (this, buffer);
                 }
             }
         }
@@ -72,6 +71,22 @@ namespace PacketApp {
                 tail = head;
             tail.Next = ctx;
             tail = ctx;
+        }
+
+        public void remove (IFlowResolver resolver) {
+            var current = head;
+            var previous = head;
+            while (current != null) {
+                if (current.Resolver == resolver) {
+                    previous.Next = current.Next;
+                    if (current == tail) {
+                        tail = previous;
+                    }
+                }
+                //Prepare for next check
+                previous = current;
+                current = current.Next;
+            }
         }
 
     }

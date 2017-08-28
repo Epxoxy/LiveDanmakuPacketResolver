@@ -4,7 +4,7 @@ namespace PacketApp {
 
     public interface IFlowResolver {
         void onConnected (ITransformContext ctx, object data);
-        void onReadReady(ITransformContext ctx, ByteBuffer buf);
+        void onReadReady (ITransformContext ctx, ByteBuffer buf);
         void onRead (ITransformContext ctx, ByteBuffer buf);
     }
 
@@ -12,7 +12,7 @@ namespace PacketApp {
         IFlowResolver Resolver { get; }
         WrappedResolver Next { get; set; }
     }
-    
+
     public class WrappedResolver : IWrappedResolver {
         public IFlowResolver Resolver { get; }
         public WrappedResolver Next { get; set; }
@@ -45,10 +45,10 @@ namespace PacketApp {
             }
         }
 
-        public void onReadReady(ITransformContext ctx, ByteBuffer buf){
+        public void onReadReady (ITransformContext ctx, ByteBuffer buf) {
             var current = Next;
             while (current != null) {
-                current.Resolver.onReadReady(ctx, buf);
+                current.Resolver.onReadReady (ctx, buf);
                 current = current.Next;
             }
         }

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 
@@ -7,9 +8,9 @@ namespace PacketApp {
     internal class PacketFactory {
         private const int baseLength = 16;
         private const int maxLength = 10 * 1024 * 1024;
-        private bool unpacking = false;
         private ByteBuffer workFlow;
         private int max;
+        private object lockHelper = new object();
 
         public PacketFactory () { }
         public PacketFactory (ByteBuffer workFlow) {
@@ -56,24 +57,39 @@ namespace PacketApp {
                 max = workFlow.ReadableBytes;
                 ($"WorkFlow Max {max}").toDebug ();
             }
-            if (workFlow.ReadableBytes > 0 && !unpacking) {
-                ($"Continue unpack {workFlow.ReadableBytes}").toDebug();
-                Task.Run (() => {
-                    unpacking = true;
-                    while (unpacking) {
-                        ($"\n---------------------").toConsole ();
-                        ($"[{DateTime.Now.ToString("HH:mm:ss fff")}] Unpacking loop").toConsole();
-                        unpack0 (workFlow);
-                        if (workFlow.ReadableBytes < baseLength)
-                            unpacking = false;
-                    }
-                }).ContinueWith(task => {
-                    task.Exception?.printStackTrace();
-                });
+            if(workFlow.ReadableBytes >= baseLength && Monitor.TryEnter(lockHelper)){
+                Monitor.Exit(lockHelper);
+                readyUnpack();
             }
         }
 
-        private bool unpack0 (ByteBuffer flow) {
+        private void readyUnpack() {
+            Task.Run(() => {
+                lock (lockHelper) {
+                    var packetAvailable = true;
+                    ($"Continue unpack {workFlow.ReadableBytes}").toDebug();
+                    while (packetAvailable) {
+                        try {
+                            ($"\n---------------------").toConsole();
+                            ($"[{DateTime.Now.ToString("HH:mm:ss fff")}] Unpacking loop").toConsole();
+                            unpackHead(workFlow);
+                            if (workFlow.ReadableBytes < baseLength) {
+                                packetAvailable = false;
+                                break;
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            packetAvailable = false;
+                            break;
+                        }
+                    }
+                }
+            }).ContinueWith(task => {
+                task.Exception?.printStackTrace();
+            });
+        }
+
+        private bool unpackHead (ByteBuffer flow) {
             if(flow.ReadableBytes < baseLength)
                 return false;
             flow.markReaderIndex ();
@@ -87,9 +103,9 @@ namespace PacketApp {
             ("*******************************").toConsole ();
             ($"{packetLength}/{flow.ReadableBytes + sizeof(int)} Unpacking .......").toConsole ();
             ("*******************************").toConsole ();
-            if (packetLength >= baseLength && packetLength < maxLength) {
+            if (packetLength < maxLength) {
                 Packet packet = null;
-                if (unpack1 (flow, packetLength, out packet)) {
+                if (unpackPayload (flow, packetLength, out packet)) {
                     flow.discardReadBytes (); //Same to buf.clear();
                 } /*else packet receive not complete*/
                 (packet == null ? "\tUnpack fail." : DateTime.Now.ToString ("HH:mm:ss fff")).toConsole ();
@@ -103,7 +119,7 @@ namespace PacketApp {
 
         }
 
-        private bool unpack1 (ByteBuffer flow, int packetLength, out Packet packet) {
+        private bool unpackPayload (ByteBuffer flow, int packetLength, out Packet packet) {
             packet = new Packet (packetLength);
             packet.headerLength = flow.readShort ();
             packet.devType = flow.readShort ();
@@ -113,11 +129,11 @@ namespace PacketApp {
             ($"Unpacking, packetType-> {packet.msgType}").toConsole ();
             byte[] payload = null;
             switch (packet.msgType) {
-                case 1: //online count param
-                case 2: //online count param
-                case 3: //online count param
-                    var userCount = flow.readInt ();
-                    packet.entity = userCount;
+                case 1: //Hot update
+                case 2: //Hot update
+                case 3: //Hot update
+                    var hot = flow.readInt ();
+                    packet.entity = hot;
                     break;
                 case 5: //danmaku data
                     payload = new byte[packet.payloadLength];

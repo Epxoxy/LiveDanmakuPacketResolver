@@ -96,8 +96,7 @@
         public override void writeByte (byte value) {
             lock (locker) {
                 int afterLen = writeIndex + 1;
-                int len = buf.Length;
-                fixSizeAndReset (len, afterLen);
+                fixSizeAndReset (buf.Length, afterLen);
                 buf[writeIndex] = value;
                 writeIndex = afterLen;
             }
@@ -107,8 +106,7 @@
                 int offset = length - startIndex;
                 if (offset <= 0) return;
                 int total = offset + writeIndex;
-                int len = buf.Length;
-                fixSizeAndReset (len, total);
+                fixSizeAndReset (buf.Length, total);
                 for (int i = writeIndex, j = startIndex; i < total; i++, j++) {
                     buf[i] = bytes[j];
                 }
@@ -137,23 +135,25 @@
         }
 
         public override void discardReadBytes () {
-            if (readIndex <= 0) return;
-            int len = buf.Length - readIndex;
-            byte[] bufTemp = new byte[len];
-            Array.Copy (buf, readIndex, bufTemp, 0, len);
-            buf = bufTemp;
-            writeIndex -= readIndex;
-            markReadIndex -= readIndex;
-            if (markReadIndex < 0) {
-                markReadIndex = readIndex;
+            lock (locker){
+                if (readIndex <= 0) return;
+                int len = buf.Length - readIndex;
+                byte[] bufTemp = new byte[len];
+                Array.Copy(buf, readIndex, bufTemp, 0, len);
+                buf = bufTemp;
+                writeIndex -= readIndex;
+                markReadIndex -= readIndex;
+                if (markReadIndex < 0) {
+                    markReadIndex = readIndex;
+                }
+                markWriteIndex -= readIndex;
+                if (markWriteIndex < 0 ||
+                    markWriteIndex < readIndex ||
+                    markWriteIndex < markReadIndex) {
+                    markWriteIndex = writeIndex;
+                }
+                readIndex = 0;
             }
-            markWriteIndex -= readIndex;
-            if (markWriteIndex < 0 ||
-                markWriteIndex < readIndex ||
-                markWriteIndex < markReadIndex) {
-                markWriteIndex = writeIndex;
-            }
-            readIndex = 0;
         }
 
         public override void clear () {

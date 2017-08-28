@@ -23,8 +23,8 @@ namespace PacketApp {
             heartbeat (ctx);
         }
 
-        public void onReadReady(ITransformContext ctx, ByteBuffer buf){
-            factory.setWorkFlow(buf);
+        public void onReadReady (ITransformContext ctx, ByteBuffer buf) {
+            factory.setWorkFlow (buf);
         }
 
         public void onRead (ITransformContext ctx, ByteBuffer buf) {
@@ -48,7 +48,7 @@ namespace PacketApp {
                     }
                 }
                 ctx.close ();
-            }).ContinueWith(task => { task.Exception?.printStackTrace(); });
+            }).ContinueWith (task => { task.Exception?.printStackTrace (); });
         }
 
     }
