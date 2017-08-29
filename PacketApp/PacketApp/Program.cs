@@ -22,8 +22,8 @@ namespace PacketApp {
                     } else break;
                 }
             }
-            Console.Clear();
-            Console.WriteLine($"Connectting to room {roomIdText}({realRoomText})");
+            Console.Clear ();
+            Console.WriteLine ($"Connectting to room {roomIdText}({realRoomText})");
             var realRoomId = int.Parse (realRoomText);
             bool mayNotExist;
             string server;
@@ -40,8 +40,9 @@ namespace PacketApp {
                 port = BiliApi.Const.DefaultChatPort;
             }
             resolver = new TransformResolverLite ();
-            resolver.addLast (new DealProtocolHandler ());
-            resolver.connect (server, port, realRoomId);
+            resolver.addLast (new KeepAliveHandler (realRoomId));
+            resolver.addLast (new UnpackHandler ());
+            resolver.connect (server, port);
             var press = Console.ReadKey ();
             while (press.Key != ConsoleKey.Escape) {
                 press = Console.ReadKey ();

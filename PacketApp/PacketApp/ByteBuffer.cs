@@ -74,7 +74,7 @@
     }
 
     public class ByteBuffer : ByteBufferBase {
-        private object locker = new object();
+        private object locker = new object ();
         private ByteBuffer (int capacity) : base (capacity) { }
         private ByteBuffer (byte[] bytes) : base (bytes) { }
 
@@ -135,11 +135,11 @@
         }
 
         public override void discardReadBytes () {
-            lock (locker){
+            lock (locker) {
                 if (readIndex <= 0) return;
                 int len = buf.Length - readIndex;
                 byte[] bufTemp = new byte[len];
-                Array.Copy(buf, readIndex, bufTemp, 0, len);
+                Array.Copy (buf, readIndex, bufTemp, 0, len);
                 buf = bufTemp;
                 writeIndex -= readIndex;
                 markReadIndex -= readIndex;

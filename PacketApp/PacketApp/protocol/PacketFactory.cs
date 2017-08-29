@@ -3,14 +3,13 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-
 namespace PacketApp {
     internal class PacketFactory {
         private const int baseLength = 16;
         private const int maxLength = 10 * 1024 * 1024;
         private ByteBuffer workFlow;
         private int max;
-        private object lockHelper = new object();
+        private static object lockHelper = new object ();
 
         public PacketFactory () { }
         public PacketFactory (ByteBuffer workFlow) {
@@ -26,7 +25,7 @@ namespace PacketApp {
                 buf.writeInt (packet.length);
                 buf.writeShort (packet.headerLength);
                 buf.writeShort (packet.devType);
-                buf.writeInt (packet.msgType);
+                buf.writeInt (packet.packetType);
                 buf.writeInt (packet.device);
                 if (payload.Length > 0)
                     buf.writeBytes (payload);
@@ -40,7 +39,7 @@ namespace PacketApp {
         public byte[] packSimple (int msgType, string payload) {
             return pack (new Packet () {
                 devType = 1,
-                    msgType = msgType,
+                    packetType = msgType,
                     device = 1,
                     payload = payload
             });
@@ -49,53 +48,54 @@ namespace PacketApp {
         public void setWorkFlow (ByteBuffer workFlow) {
             this.workFlow = workFlow;
         }
-        
-        public void fireUnpack () { 
+
+        public void fireUnpack () {
             ($"\n---------------------").toConsole ();
             ($"Fire unpack {workFlow.ReadableBytes}").toConsole ();
             if (workFlow.ReadableBytes > max) {
                 max = workFlow.ReadableBytes;
                 ($"WorkFlow Max {max}").toDebug ();
             }
-            if(workFlow.ReadableBytes >= baseLength && Monitor.TryEnter(lockHelper)){
-                Monitor.Exit(lockHelper);
-                readyUnpack();
+            if (workFlow.ReadableBytes >= baseLength && Monitor.TryEnter (lockHelper)) {
+                Monitor.Exit (lockHelper);
+                readyUnpack ();
             }
         }
 
-        private void readyUnpack() {
-            Task.Run(() => {
+        private void readyUnpack () {
+            Task.Run (() => {
                 lock (lockHelper) {
                     var packetAvailable = true;
-                    ($"Continue unpack {workFlow.ReadableBytes}").toDebug();
+                    ($"Continue unpack {workFlow.ReadableBytes}").toDebug ();
                     while (packetAvailable) {
                         try {
-                            ($"\n---------------------").toConsole();
-                            ($"[{DateTime.Now.ToString("HH:mm:ss fff")}] Unpacking loop").toConsole();
-                            unpackHead(workFlow);
+                            ($"\n---------------------").toConsole ();
+                            ($"[{DateTime.Now.ToString("HH:mm:ss fff")}] Unpacking loop").toConsole ();
+                            unpack (workFlow);
                             if (workFlow.ReadableBytes < baseLength) {
                                 packetAvailable = false;
                                 break;
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            System.Diagnostics.Debug.WriteLine (e.ToString ());
+                            e.printStackTrace ();
                             packetAvailable = false;
                             break;
                         }
                     }
                 }
-            }).ContinueWith(task => {
-                task.Exception?.printStackTrace();
+            }).ContinueWith (task => {
+                task.Exception?.printStackTrace ();
             });
         }
 
-        private bool unpackHead (ByteBuffer flow) {
-            if(flow.ReadableBytes < baseLength)
+        private bool unpack (ByteBuffer flow) {
+            if (flow.ReadableBytes < baseLength)
                 return false;
             flow.markReaderIndex ();
             int packetLength = flow.readInt ();
             int payloadLength = packetLength - sizeof (int);
-            if (packetLength < baseLength || 
+            if (packetLength < baseLength ||
                 flow.ReadableBytes < payloadLength) {
                 flow.resetReaderIndex ();
                 return false;
@@ -104,12 +104,14 @@ namespace PacketApp {
             ($"{packetLength}/{flow.ReadableBytes + sizeof(int)} Unpacking .......").toConsole ();
             ("*******************************").toConsole ();
             if (packetLength < maxLength) {
-                Packet packet = null;
+                Packet packet = default (Packet);
                 if (unpackPayload (flow, packetLength, out packet)) {
                     flow.discardReadBytes (); //Same to buf.clear();
-                } /*else packet receive not complete*/
-                (packet == null ? "\tUnpack fail." : DateTime.Now.ToString ("HH:mm:ss fff")).toConsole ();
-                packet.ToString ().toDebug ();
+                    var now = DateTime.Now.ToString ("HH:mm:ss fff");
+                    now.toConsole ();
+                    now.toDebug ();
+                    ("  " + packet.ToString ()).toDebug ();
+                } else "\tUnpack fail.".toConsole (); /*else packet receive not complete*/
                 ("*******************************").toConsole ();
                 return true;
             } else {
@@ -120,26 +122,26 @@ namespace PacketApp {
         }
 
         private bool unpackPayload (ByteBuffer flow, int packetLength, out Packet packet) {
-            packet = new Packet (packetLength);
+            packet = new Packet { length = packetLength };
             packet.headerLength = flow.readShort ();
             packet.devType = flow.readShort ();
-            packet.msgType = flow.readInt ();
+            packet.packetType = flow.readInt ();
             packet.device = flow.readInt ();
             packet.payloadLength = packetLength - baseLength;
-            ($"Unpacking, packetType-> {packet.msgType}").toConsole ();
+            ($"Unpacking, packetType-> {packet.packetType}").toConsole ();
             byte[] payload = null;
-            switch (packet.msgType) {
+            switch (packet.packetType) {
                 case 1: //Hot update
                 case 2: //Hot update
                 case 3: //Hot update
                     var hot = flow.readInt ();
-                    packet.entity = hot;
+                    packet.payload = hot.ToString ();
                     break;
                 case 5: //danmaku data
                     payload = new byte[packet.payloadLength];
                     flow.readBytes (payload, 0, payload.Length);
                     packet.payload = Encoding.UTF8.GetString (payload);
-                    if (!toEntity (packet.payload, out packet.entity)) {
+                    if (!isValid (packet.payload)) {
                         return false;
                     }
                     break;
@@ -151,15 +153,14 @@ namespace PacketApp {
                 default:
                     payload = new byte[packet.payloadLength];
                     flow.readBytes (payload, 0, payload.Length);
-                    ("Mark for search type of " + packet.msgType).toConsole ();
+                    ("Mark for search type of " + packet.packetType).toConsole ();
                     packet.payload = Encoding.UTF8.GetString (payload);
                     break;
             }
             return true;
         }
 
-        private bool toEntity (string json, out object obj) {
-            obj = json;
+        private bool isValid (string json) {
             try {
                 //
                 return true;

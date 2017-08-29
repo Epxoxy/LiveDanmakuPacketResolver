@@ -3,7 +3,7 @@
 namespace PacketApp {
     public static class DebugHelper {
         public static void printStackTrace (this System.Exception e) {
-            var msgs = new System.Text.StringBuilder ("Exception Thrown: \n\t");
+            /*var msgs = new System.Text.StringBuilder ("Exception Thrown: \n\t");
             //Add first level
             var m1 = new StackTrace ().GetFrame (1) ? .GetMethod ();
             msgs.appendFormatIf (m1 != null, "{0}.{1}\n\t", m1.ReflectedType.Name, m1.Name);
@@ -16,8 +16,8 @@ namespace PacketApp {
                 var ex = e.InnerException;
                 msgs.appendLineIf (!string.IsNullOrEmpty (ex.Message), ex.Message);
                 msgs.appendLineIf (!string.IsNullOrEmpty (ex.StackTrace), ex.StackTrace);
-            }
-            Debug.WriteLine (msgs.ToString ());
+            }*/
+            Debug.WriteLine (e.ToString ());
         }
         public static void appendLineIf (this System.Text.StringBuilder builder, bool condiction, string line) {
             if (condiction)

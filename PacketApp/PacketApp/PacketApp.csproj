@@ -43,17 +43,21 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="context\basic\AbstractFlowResolver.cs" />
     <Compile Include="ByteBuffer.cs" />
+    <Compile Include="context\basic\ITransformContext.cs" />
+    <Compile Include="protocol\handlers\KeepAliveHandler.cs" />
     <Compile Include="protocol\BiliApi.cs" />
     <Compile Include="temp\DebugEx.cs" />
     <Compile Include="protocol\PacketFactory.cs" />
-    <Compile Include="protocol\DealProtocolHandler.cs" />
+    <Compile Include="protocol\handlers\UnpackHandler.cs" />
     <Compile Include="DebugHelper.cs" />
     <Compile Include="protocol\Packet.cs" />
     <Compile Include="context\TransformResolverLite.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="context\IFlowResolver.cs" />
+    <Compile Include="context\basic\IFlowResolver.cs" />
+    <Compile Include="context\basic\WrappedResolver.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />

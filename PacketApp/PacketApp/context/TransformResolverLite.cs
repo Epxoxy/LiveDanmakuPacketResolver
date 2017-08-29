@@ -1,18 +1,7 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Net.Sockets;
+﻿using System.Net.Sockets;
 using System.Threading.Tasks;
 
 namespace PacketApp {
-
-    public interface ITransformContext {
-        void addLast (IFlowResolver resolver);
-        void remove (IFlowResolver resolver);
-        bool isActive ();
-        void writeAndFlush (byte[] data);
-        void write (byte[] data);
-        void flush ();
-        void close ();
-    }
 
     internal class TransformResolverLite : ITransformContext {
         private bool isAlive = false;
@@ -21,13 +10,12 @@ namespace PacketApp {
         private IWrappedResolver head = new WrappedHeadResolver ();
         private IWrappedResolver tail;
 
-        [SuppressMessage ("Microsoft.Performance", "CS4014")]
-        public async void connect (string host, int port, int channelId) {
+        public async void connect (string host, int port) {
             client = new TcpClient ();
             client.Connect (host, port);
             stream = client.GetStream ();
             isAlive = true;
-            head?.Resolver.onConnected (this, channelId);
+            head?.Resolver.onConnected (this, null);
             while (isAlive) {
                 if (!stream.DataAvailable) {
                     await Task.Delay (100);
@@ -37,9 +25,13 @@ namespace PacketApp {
                 var cache = new byte[1024];
                 var buffer = ByteBuffer.allocate (1024);
                 head?.Resolver.onReadReady (this, buffer);
-                while ((readSize = stream.Read (cache, 0, cache.Length)) > 0) {
-                    buffer.writeBytes (cache, 0, readSize);
-                    head?.Resolver.onRead (this, buffer);
+                try {
+                    while ((readSize = stream.Read (cache, 0, cache.Length)) > 0) {
+                        buffer.writeBytes (cache, 0, readSize);
+                        head?.Resolver.onRead (this, buffer);
+                    }
+                } catch (System.Exception e) {
+                    e.printStackTrace ();
                 }
             }
         }
@@ -87,6 +79,48 @@ namespace PacketApp {
                 previous = current;
                 current = current.Next;
             }
+        }
+
+    }
+
+    internal class WrappedHeadResolver : IWrappedResolver, IFlowResolver {
+        public IFlowResolver Resolver => this;
+        public WrappedResolver Next { get; set; }
+
+        public void onConnected (ITransformContext ctx, object data) {
+            Task.Run (() => {
+                var current = Next;
+                while (current != null) {
+                    current.Resolver.onConnected (ctx, data);
+                    current = current.Next;
+                }
+            }).ContinueWith (task => {
+                task.Exception?.printStackTrace ();
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        public void onRead (ITransformContext ctx, ByteBuffer buf) {
+            Task.Run (() => {
+                var current = Next;
+                while (current != null) {
+                    current.Resolver.onRead (ctx, buf);
+                    current = current.Next;
+                }
+            }).ContinueWith (task => {
+                task.Exception?.printStackTrace ();
+            }, TaskContinuationOptions.OnlyOnFaulted);
+        }
+
+        public void onReadReady (ITransformContext ctx, ByteBuffer buf) {
+            Task.Run (() => {
+                var current = Next;
+                while (current != null) {
+                    current.Resolver.onReadReady (ctx, buf);
+                    current = current.Next;
+                }
+            }).ContinueWith (task => {
+                task.Exception?.printStackTrace ();
+            }, TaskContinuationOptions.OnlyOnFaulted);
         }
 
     }
